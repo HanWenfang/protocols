@@ -1,4 +1,8 @@
 protocols
 =========
 
-some protocols implementation in muman
+some protocols implementation in MumanPlatform
+
+	*Raft
+
+	
