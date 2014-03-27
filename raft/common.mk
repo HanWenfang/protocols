@@ -7,5 +7,9 @@ SYSLIBS = -lPocoFoundation
 #core
 obj-cppRaft += Raft.o
 obj-cppRaft += ArgumentsParser.o
-
-
+obj-cppRaft += ComputeCore.o
+obj-cppRaft += Connect.o
+obj-cppRaft += AsynCore.o
+obj-cppRaft += Message.o
+obj-cppRaft += Protocol.o
+obj-cppRaft += Entry.o

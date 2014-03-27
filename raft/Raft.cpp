@@ -1,9 +1,9 @@
 #include "UniqueServer.h"
 #include "ArgumentsParser.h"
+#include "ComputeCore.h"
 #include <vector>
 
 using std::vector;
-
 
 int main(int argc, char const *argv[])
 {
@@ -13,17 +13,17 @@ int main(int argc, char const *argv[])
 	UniqueServer rank3("127.0.0.1", 16540);
 	UniqueServer rank4("127.0.0.1", 16550);
 
-	vector<UniqueServer> rankTable;
-	rankTable.push_back(rank0);
-	rankTable.push_back(rank1);
-	rankTable.push_back(rank2);
-	rankTable.push_back(rank3);
-	rankTable.push_back(rank4);
+	UniqueServer rankTable[5];
+	rankTable[0] = rank0;
+	rankTable[1] = rank1;
+	rankTable[2] = rank2;
+	rankTable[3] = rank3;
+	rankTable[4] = rank4;
 	
 	int rank = ArgumentsParser::getRank(argc, argv);
 
-
-
+	ComputeCore cc(rankTable, rank);
+	cc.run();
 
 	return 0;
 }
