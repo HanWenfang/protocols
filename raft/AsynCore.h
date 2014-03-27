@@ -28,7 +28,7 @@ private:
 
 	int rank;
 	UniqueServer *ranks;
-	int socks[5];
+	//int socks[5];
 
 	vector<Message> inbox;
 	vector<Message> outbox;
@@ -71,18 +71,37 @@ private:
 	void processAppendEntryMessage(Message &m);
 	void processAppendEntryMessageOK(Message &m);
 	void processHeartBeatMessage(Message &m);
-	
+
 	vector<Entry> entryLog;
 	int current_index;
+	int last_index;
+
 	int current_term;
 	int last_term;
+
 	int last_committed;
+	int current_committed;
+	int committed;
+	int voters;
 
 	void incTerm() { ++ current_term; }
 
+	struct sockTable
+	{
+		int index; // for entry log
+		int sock;
+	};
+
+	sockTable sock_table[5];
 
 public:
-	AsynCore(){ memset(socks, -1, sizeof(socks)); }
+	AsynCore(){
+		for(int i=0; i<5; ++i)
+		{
+			sock_table[i].sock = -1;
+			sock_table[i].index = 0;
+		}
+	}
 	int initialize(int rk, UniqueServer *rank_set);
 	void setRanks(int rk, UniqueServer *rank_set);
 	int spawnSocket();
@@ -99,9 +118,9 @@ public:
 		return status;
 	}
 
-	int *getSocks()
+	sockTable *getSockTable()
 	{
-		return socks;
+		return sock_table;
 	}
 };
 
@@ -143,6 +162,8 @@ public:
 	virtual void run()
 	{
 		if(async->getStatus() == 2){
+			if(current_committed == current_index) return;
+
 			int *socks = async->getSocks();
 			vector<Message> outbox; // cleared
 
@@ -150,13 +171,14 @@ public:
 			{
 				if(i == rank) continue;
 				if(socks[i] != -1){
-					//HeartBeat Message
-
-					
+					//AppendEntryLog Message
+					string context = combineToJson(entryLog[current_committed], entryLog[current_committed+1]);
+					Message m(rank, i, RAFT_APPEND_ENTRY_MESSAGE, context);
+					m.setSocket(socks[i]);
+					outbox.push_back(m);
 				}
 			}
 
-		
 			Protocol::sendMessage(outbox);
 		}
 
@@ -174,20 +196,28 @@ public:
 	VoteRPC(AsynCore *ac):async(ac) {}
 	virtual void run()
 	{
+		// increase current term
 		async->incTerm();
-		int *socks = async->getSocks();
+
+		sockTable *sock_table = async->getSockTable();
 		vector<Message> outbox; // cleared
+		vector<Message> offlineBox;
 
 		for(int i=0; i<5; ++i)
 		{
 			if(i == rank) continue;
-			if(socks[i] != -1){
+			if(sock_table[i].sock != -1){
 				//Vote Message
-				Entry entry();
-				Message m(rank, i, RAFT_VOTE_MESSAGE, entry.toJSON());
+				Entry entry(current_term, current_committed, 1, "");
+				string context = combineToJson(entryLog[current_index], entry);
+				Message m(rank, i, RAFT_VOTE_MESSAGE, context);
 				m.setSocket(socks[i]);
 
 				outbox.push_back(m);
+			}
+			else
+			{
+
 			}
 		}
 

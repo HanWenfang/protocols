@@ -8,13 +8,18 @@ using namespace std;
 class Entry
 {
 public:
-	Entry();
+	Entry(int ct, int cc, int rc, string cm):current_term(ct), current_committed(cc), resp_counter(rc), command(cm)
+	{}
 	~Entry();
 	string toJSON();
+	int getCurrentTerm();
+	int getCurrentCommitted();
+	int getCommand();
 
 private:
 	int current_term;
-	int current_index;
+	int current_committed;
+	int resp_counter;
 	string command;
 };
 

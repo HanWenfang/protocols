@@ -9,7 +9,6 @@
 
 #define IP_PORT_SIZE sizeof(struct sockaddr_in)
 
-// AF_INET(IPv4 Address Format) SOCK_STREAM(TCP) IPPROTO_TCP(TCP)
 int AsynCore::spawnSocket()
 {
 	int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -25,7 +24,7 @@ int AsynCore::configSocket(int option)
 
 void AsynCore::socketAddress(struct sockaddr_in &sockAddr, in_port_t serverPort, in_addr_t serverIp)
 {
-	sockAddr.sin_family = AF_INET; //IPv4
+	sockAddr.sin_family = AF_INET;
 	sockAddr.sin_port = serverPort;
 	sockAddr.sin_addr.s_addr = serverIp;
 }
@@ -51,6 +50,7 @@ int getRank(sockaddr_in temp)
 	{
 		if(ranks[i] == temp) return i;
 	}
+	return -1;
 }
 
 void AsynCore::acceptSocket()
@@ -70,24 +70,25 @@ void AsynCore::acceptSocket()
 	}
 
 	int rank = getRank(temp);
+
+	if(rank < 0){
+		close(return_value);
+		return;
+	}
 	
-	if (socks[rank] != -1)
+	if (sock_table[rank].sock != -1)
 	{
 		close(return_value);
+		return;
 	}
 	else
 	{
-		socks[rank] = return_value;
+		sock_table[rank].sock = return_value;
+		sock_table[rank].index = 0;
 	}
 
-	//int nSndBuf = 1024*32;
-	//int nRcvBuf = 1024*32;
 	int noTCPDelay = 1;
-
-	//set socket options
 	setsockopt(return_value, IPPROTO_TCP, TCP_NODELAY, (const void *)&noTCPDelay, sizeof(noTCPDelay));
-	//setsockopt(return_value, SOL_SOCKET, SO_SNDBUF, (const void *)&nSndBuf, sizeof(nSndBuf));
-	//setsockopt(return_value, SOL_SOCKET, SO_SNDBUF, (const void *)&nRcvBuf, sizeof(nRcvBuf));
 }
 
 void AsynCore::setRanks(int rk, UniqueServer *rank_set)
@@ -107,8 +108,13 @@ int AsynCore::initialize(int rk, UniqueServer *rank_set)
 	status = 0;
 	current_term = 0;
 	current_index = 0;
+	current_committed = 0;
 	last_term = 0;
 	last_committed = 0;
+	last_index = 0;
+	voters = 0;
+	committed = 0;
+
 	startHeartbeatThread();
 
 	setRanks(rk, rank_set);
@@ -118,8 +124,9 @@ int AsynCore::initialize(int rk, UniqueServer *rank_set)
 		return -1;
 	}
 
-	socks[rank] = current_socket;
-	
+	sock_table[rank].sock = current_socket;
+	sock_table[rank].index = 0 ;
+
 	if(configSocket(SO_REUSEADDR) < 0){
 		cout << "config socket error" << endl;
 		return -1;
@@ -165,7 +172,7 @@ void fdSetAll(fd_set *fds)
 {
 	for(int i=0; i<5; ++i)
 	{
-		if(socks[i] != -1)  FD_SET(socks[i], fds);
+		if(sock_table[i].sock != -1)  FD_SET(sock_table[i].sock, fds);
 	}
 }
 
@@ -176,26 +183,83 @@ void processHeartBeatMessage(Message &m)
 
 void processVoteMessage(Message &m)
 {
-	incTerm();
+	//parse and get entries
+
+	//compare the last entry
+
+	// if voted incTerm ==> one Term one vote
+	voted = true;
+	
+	//  push result to outbox
 
 }
 
 void processVoteMessageOK(Message &m)
 {
-	
+	if(status != 1) return;
 
+	Entry entry = m.getEntry();
+	//if(entry.getCurrentTerm() == current_term){
+		++voters;
+	//}
+	// include himself!---------strong consensus!
+	if(voters >=4){
+		cout << "I was voted as a Leader!" << endl;
+		status = 2;
+		voters = 0;
+	}
 }
 
 void processAppendEntryMessage(Message &m)
 {
-	
+	Entry entry = m.getEntry();
+
+	if(status == 0)
+	{
+		// check entry log
+
+		// error , return error
+
+		//copy entry to local entrylog
+
+		//
+
+		// committed check, execute
+
+	}
+
+	if(status == 1)
+	{
+		// leader check
+		
+		// check entry log
+
+		// error , return error
+
+		//copy entry to local entrylog
+
+		//
+
+		// committed check, execute
+
+	}
 
 }
 
 void processAppendEntryMessageOK(Message &m)
 {
-	
+	if(status != 2) return;
 
+	Entry entry = m.getEntry();
+	if(entry.getCurrentTerm() == current_term &&){
+		++committed;
+	}
+	// include himself!---------strong consensus!
+	if(voters >=4){
+		cout << "I was voted as a Leader!" << endl;
+		status = 2;
+		voters = 0;
+	}
 }
 
 void processMessage(vector<Message> &inbox)
@@ -204,7 +268,7 @@ void processMessage(vector<Message> &inbox)
 	{
 		switch (it->getMessageTag())
 		{
-			case RAFT_HEARTBEAT_MSSAGE:
+			case RAFT_HEARTBEAT_MESSAGE:
 				processHeartBeatMessage(*it);
 				break;
 			case RAFT_VOTE_MESSAGE:
@@ -247,15 +311,15 @@ int AsynCore::select()
 		{
 			if (sock[i] == -1) continue;
 
-			if (FD_ISSET(sock[i], &fds))
+			if (FD_ISSET(sock_table[i].sock, &fds))
 			{
 				if(i != rank)
 				{
 					//inbox --- receive one message
 					if (Protocol::receiveMessage(sock[i], inbox) == 0)
 					{
-						close(sock[i]);
-						sock[i] = -1;
+						close(sock_table[i].sock);
+						sock_table[i].sock = -1;
 					}
 				}
 				else
@@ -268,7 +332,7 @@ int AsynCore::select()
 
 	// processing --- status machine
 	if(status == 0){
-		cout << "I am a flllower!" << endl;
+		cout << "I am a follower!" << endl;
 		// deal with communication [ leader(heartbeat), brother(VoteRPC) ]
 		processMessage(inbox);
 
@@ -316,20 +380,3 @@ void AsynCore::startHeartbeatThread()
 	timer.start(TimerCallback<HeartBeat>(hb, &HeartBeat::run));
 	cout << "Heartbeat Timer started!" << endl;
 }
-
-VoteRPC()
-{
-	while(select-timeout)
-	{
-
-		// status check
-		!candidate => break;
-
-		// getall response
-		 ==>leader
-		 break;
-	}
-}
-
-
-

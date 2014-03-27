@@ -1,11 +1,5 @@
 #include "ComputeCore.h"
 
-void startThread()
-{
-	
-
-}
-
 // make sure that all servers start!
 int init()
 {
@@ -14,15 +8,16 @@ int init()
 	time_value.tv_sec = 1;
 	time_value.tv_usec = 0;
 
-	for(vector<UniqueServerQueue>::iterator it=ranks.begin(); it != ranks.end(); ++it)
+	for(int i=0; i<5; ++i)
 	{
-		if((it- ranks.begin()) == rank) continue;
+		if(i == rank) continue;
 		
-		cout << rank <<" is trying to connect rank " << it- ranks.begin() << endl;
+		cout << rank <<" is trying to connect rank " << i << endl;
 
-		while( Connect::connectTimeout(it->ip, it->port, sock,timeval) < 0){
+		while( Connect::connectTimeout(ranks[i].ip, ranks[i].port, sock,timeval) < 0){
 			sleep(5);
 		}
+
 		close(sock);
 	}
 
