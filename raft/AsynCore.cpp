@@ -196,29 +196,33 @@ void processVoteMessage(Message &m)
 {
 	//parse and get entries
 	vector<Entry> entries=m.getEntries();
-	
+
 	//compare the last entry
-
-	// if voted incTerm ==> one Term one vote
-	voted = true;
-
-	//  push result to outbox
-
+	// term > , not >=, keep unique vote one term!
+	if(entries[0].getCurrentTerm() > current_term && 
+	   entries[1].getCurrentTerm() >= current_term && 
+	   entries[1].getCurrentCommitted() >= current_committed)
+	{
+		status = 0; // follower
+		current_term = entries[0].getCurrentTerm();
+		Message m(rank, m.getRankSource(), RAFT_VOTE_MESSAGE_OK, "");
+		m.setSocket(socks[m.getRankSource()]);
+		vector<Message> outbox;
+		outbox.push_back(m);
+		Protocol::sendMessage(outbox);
+	}
 }
 
 void processVoteMessageOK(Message &m)
 {
 	if(status != 1) return;
-
-	Entry entry = m.getEntry();
-	//if(entry.getCurrentTerm() == current_term){
-		++voters;
-	//}
+	
+	++voters;
 	// include himself!---------strong consensus!
 	if(voters >=4){
 		cout << "I was voted as a Leader!" << endl;
 		status = 2;
-		voters = 0;
+		voters = 1;
 	}
 }
 

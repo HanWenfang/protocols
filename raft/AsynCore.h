@@ -43,6 +43,7 @@ private:
 		status = news;
 	}
 
+	int voters;
 	Poco::LocalDateTime lastVoteTime;
 	int checkLastVoteTime()
 	{
@@ -52,6 +53,7 @@ private:
 		//30 seconds votetime out-of-date:no random
 		if(diff.totalSeconds() > 30){
 			lastVoteTime = now;
+			voters = 1;
 			return -1;
 		}
 
@@ -89,7 +91,6 @@ private:
 	int current_committed;
 
 	int committed;
-	int voters;
 
 	void incTerm() { ++ current_term; }
 
@@ -191,7 +192,6 @@ public:
 
 private:
 	AsynCore *async;
-
 };
 
 class AppendEntry: public Poco::Runnable
