@@ -9,4 +9,7 @@
 2. Initial Start
 
 
+HeartBeat: 10s
+BeginVoteTimeout: 60s
+VoteTimeOut: 30s
 

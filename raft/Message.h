@@ -3,6 +3,7 @@
 #ifndef MESSAGE_MUMAN_H
 #define MESSAGE_MUMAN_H
 #include <string>
+#include "Entry.h"
 
 using namespace std;
 
@@ -43,6 +44,9 @@ public:
 
 	void setblockID(int bID);
 	int getblockID();
+
+	vector<Entry> getEntries();
+	Entry getEntry();
 };
 
 #endif

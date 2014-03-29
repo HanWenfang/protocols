@@ -42,7 +42,7 @@ int AsynCore::setListen(int num)
 int getRank(sockaddr_in temp)
 {
 	int port = temp.sin_port;
-	string ip = temp..sin_addr.s_addr;
+	string ip = temp.sin_addr.s_addr;
 
 	UniqueServer temp(ip, port);
 
@@ -106,14 +106,14 @@ int AsynCore::initialize(int rk, UniqueServer *rank_set)
 		 leader:	2 
 	******************/
 	status = 0;
-	current_term = 0;
-	current_index = 0;
-	current_committed = 0;
-	last_term = 0;
-	last_committed = 0;
-	last_index = 0;
-	voters = 0;
-	committed = 0;
+	current_term = -1;
+	current_index = -1;
+	current_committed = -1;
+	last_term = -1;
+	last_committed = -1;
+	last_index = -1;
+	voters = 1;
+	committed = -1; //?
 
 	startHeartbeatThread();
 
@@ -125,7 +125,7 @@ int AsynCore::initialize(int rk, UniqueServer *rank_set)
 	}
 
 	sock_table[rank].sock = current_socket;
-	sock_table[rank].index = 0 ;
+	sock_table[rank].index = 0;
 
 	if(configSocket(SO_REUSEADDR) < 0){
 		cout << "config socket error" << endl;
@@ -178,18 +178,30 @@ void fdSetAll(fd_set *fds)
 
 void processHeartBeatMessage(Message &m)
 {
+	Entry entry = m.getEntry();
+	Poco::LocalDateTime now;
 
+	// I admit you are the leader first! I am a follower or candidate!
+	if(entry.getCurrentTerm() >= current_term && entry.getCurrentIndex() >= current_index )
+	{
+		lastHeartbeat = now;
+	}
+	else
+	{
+		status = 1; // candidate
+	}
 }
 
 void processVoteMessage(Message &m)
 {
 	//parse and get entries
-
+	vector<Entry> entries=m.getEntries();
+	
 	//compare the last entry
 
 	// if voted incTerm ==> one Term one vote
 	voted = true;
-	
+
 	//  push result to outbox
 
 }
@@ -349,11 +361,8 @@ int AsynCore::select()
 		if((status == 1) && (checkLastVoteTime() < 0)){
 			Poco::LocalDateTime now;
 			lastVoteTime = now;
-			Poco::Thread thread;
 			// pull -- new thread to elect,status must be thread-safe! [ random timeout ]
-			VoteRPC vRPC;
-			thread.start(vRPC);
-			thread.wait();
+			Poco::ThreadPool::defaultPool().start(vRPC);;
 		}
 	}
 

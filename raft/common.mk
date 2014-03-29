@@ -13,3 +13,4 @@ obj-cppRaft += AsynCore.o
 obj-cppRaft += Message.o
 obj-cppRaft += Protocol.o
 obj-cppRaft += Entry.o
+obj-cppRaft += cJSON.o

@@ -66,3 +66,20 @@ int Message::getblockID()
 	return blockID;
 }
 
+vector<Entry> Message::getEntries()
+{
+	vector<Entry> entries;
+	if(context.empty()) return entries;
+
+
+
+}
+
+Entry Message::getEntry()
+{
+	Entry entry;
+	if(context.empty()) return entry;
+
+	
+
+}
